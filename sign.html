@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Pre-Work Authorization — Sign</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+    body{font-family:-apple-system,Helvetica,Arial,sans-serif;background:#f8fafc;color:#0f172a;padding:0;}
+    .container{max-width:480px;margin:0 auto;padding:20px 16px 40px;}
+    .header{background:#2c1810;color:#fff;border-radius:16px;padding:20px;margin-bottom:16px;text-align:center;}
+    .header h1{font-size:20px;font-weight:800;margin-bottom:4px;}
+    .header p{font-size:13px;opacity:0.7;}
+    .card{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.06);}
+    .card h3{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:10px;}
+    .row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f8fafc;}
+    .row:last-child{border-bottom:none;}
+    .row-label{font-size:13px;color:#64748b;flex-shrink:0;margin-right:12px;}
+    .row-value{font-size:13px;font-weight:700;color:#0f172a;text-align:right;flex:1;}
+    .price{font-size:28px;font-weight:800;color:#2c1810;text-align:center;padding:14px 0;}
+    .scope-box{font-size:14px;color:#374151;line-height:1.7;font-style:italic;background:#f8fafc;padding:14px;border-radius:10px;margin-top:8px;border-left:3px solid #d4a574;}
+    .sign-section{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.06);}
+    .sign-section h3{font-size:14px;font-weight:800;color:#0f172a;margin-bottom:4px;}
+    .sign-section p{font-size:13px;color:#64748b;margin-bottom:14px;line-height:1.5;}
+    canvas{border:1.5px solid #d4a574;border-radius:12px;width:100%;height:180px;touch-action:none;background:#fff;cursor:crosshair;display:block;}
+    .btn{width:100%;padding:15px;border-radius:12px;border:none;font-size:15px;font-weight:800;cursor:pointer;margin-top:10px;letter-spacing:0.2px;}
+    .btn-primary{background:#2c1810;color:#fff;}
+    .btn-primary:disabled{background:#94a3b8;cursor:not-allowed;}
+    .btn-clear{background:#f1f5f9;color:#64748b;}
+    .legal{font-size:11px;color:#94a3b8;text-align:center;line-height:1.7;margin-top:14px;padding:0 8px;}
+    .state{display:none;text-align:center;padding:60px 20px;max-width:400px;margin:0 auto;}
+    .state.active{display:block;}
+    .state-icon{font-size:64px;margin-bottom:16px;}
+    .state h2{font-size:22px;font-weight:800;margin-bottom:8px;}
+    .state p{font-size:14px;color:#64748b;line-height:1.6;}
+    .loading-bar{width:60px;height:60px;border:4px solid #f1f5f9;border-top:4px solid #2c1810;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    textarea{font-family:inherit;}
+  </style>
+</head>
+<body>
+
+<!-- Loading state -->
+<div class="state active" id="stateLoading">
+  <div class="loading-bar"></div>
+  <h2 style="color:#64748b;font-size:16px;">Loading agreement...</h2>
+</div>
+
+<!-- Not found state -->
+<div class="state" id="stateNotFound">
+  <div class="state-icon">❌</div>
+  <h2 style="color:#dc2626;">Link Not Found</h2>
+  <p>This signing link is invalid or has expired.<br/>Please contact your contractor for a new link.</p>
+</div>
+
+<!-- Expired state -->
+<div class="state" id="stateExpired">
+  <div class="state-icon">⏰</div>
+  <h2>Link Expired</h2>
+  <p>This signing link has expired (48 hours).<br/>Please contact your contractor for a new link.</p>
+</div>
+
+<!-- Already signed state -->
+<div class="state" id="stateAlreadySigned">
+  <div class="state-icon">✅</div>
+  <h2 style="color:#057a55;">Already Signed</h2>
+  <p>You have already signed this agreement.<br/>Your contractor has been notified.</p>
+</div>
+
+<!-- Saving state -->
+<div class="state" id="stateSaving">
+  <div class="loading-bar"></div>
+  <h2 style="color:#2c1810;font-size:18px;">Saving...</h2>
+  <p>Please wait</p>
+</div>
+
+<!-- Success state -->
+<div class="state" id="stateSuccess">
+  <div class="state-icon">✅</div>
+  <h2 style="color:#057a55;" id="successTitle">Agreement Signed!</h2>
+  <p id="successMsg">Thank you! Your contractor has been notified.<br/>You may now close this page.</p>
+</div>
+
+<!-- Already submitted state -->
+<div class="state" id="stateAlreadySubmitted">
+  <div class="state-icon" id="alreadySubmittedIcon">🔒</div>
+  <h2 id="alreadySubmittedTitle" style="color:#2c1810;font-size:18px;">Already Submitted</h2>
+  <p id="alreadySubmittedMsg" style="margin-top:8px;font-size:14px;line-height:1.6;"></p>
+  <p style="margin-top:16px;font-size:12px;color:#94a3b8;">
+    If you need to make changes please contact your contractor directly.
+  </p>
+</div>
+
+<!-- Main signing page -->
+<div id="mainContent" style="display:none;">
+  <div class="container">
+
+    <div class="header">
+      <h1 id="headerTitle">Pre-Work Authorization</h1>
+      <p id="headerSub">Please review carefully and sign below</p>
+    </div>
+
+    <div class="card" id="jobDetailsCard">
+      <h3>Job Details</h3>
+      <div class="row">
+        <span class="row-label">Job</span>
+        <span class="row-value" id="jobTitle">—</span>
+      </div>
+      <div class="row">
+        <span class="row-label">Location</span>
+        <span class="row-value" id="jobLocation">—</span>
+      </div>
+      <div class="row" id="startDateRow">
+        <span class="row-label">Start Date</span>
+        <span class="row-value" id="startDate">—</span>
+      </div>
+      <div class="row" id="paymentTermsRow">
+        <span class="row-label">Payment Terms</span>
+        <span class="row-value" id="paymentTerms">—</span>
+      </div>
+      <div class="price" id="agreedPrice">$0.00</div>
+      <div class="row" id="depositRow" style="display:none;">
+        <span class="row-label">Deposit Required</span>
+        <span class="row-value" id="depositAmount">$0.00</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 id="scopeLabel">Scope of Work</h3>
+      <div class="scope-box" id="scopeText">—</div>
+    </div>
+
+    <!-- Signature section -->
+    <div class="sign-section" id="signatureSection">
+      <h3>Your Signature</h3>
+      <p id="signInstruction">Sign below to confirm you agree to the above terms</p>
+      <div id="ackRow" style="display:flex;align-items:flex-start;gap:10px;margin:14px 0;padding:12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;">
+        <input type="checkbox" id="ackCheckbox" style="margin-top:3px;width:20px;height:20px;flex-shrink:0;" onchange="onAckChange()">
+        <label for="ackCheckbox" id="ackLabel" style="font-size:14px;color:#0f172a;line-height:1.5;cursor:pointer;"></label>
+      </div>
+      <p id="ackHint" style="font-size:12px;color:#94a3b8;margin:0 0 10px;">Confirm the statement above to enable signing.</p>
+      <canvas id="signatureCanvas"></canvas>
+      <button class="btn btn-clear" onclick="clearCanvas()">Clear Signature</button>
+      <button class="btn" id="submitBtn" onclick="handleSign()"
+        style="background:#057a55;color:#fff;opacity:0.4;pointer-events:none;cursor:not-allowed;">
+        ✓ Sign &amp; Accept
+      </button>
+      <button class="btn" id="negotiateBtn" onclick="handleNegotiate()"
+        style="background:#fff7ed;color:#d97706;border:1.5px solid #d97706;">
+        💬 Request Changes
+      </button>
+      <button class="btn" id="declineBtn" onclick="handleDecline()"
+        style="background:#fef2f2;color:#dc2626;border:1.5px solid #dc2626;">
+        ✗ Decline
+      </button>
+      <p class="legal" id="legalText">
+        By signing, you confirm you have read and agreed to the scope of work
+        and payment terms stated above. This is recorded as your acknowledgment
+        of the scope and terms above.
+      </p>
+    </div>
+
+    <!-- Negotiate section (shown when Request Changes is tapped) -->
+    <div class="sign-section" id="negotiateSection" style="display:none;">
+      <h3>Request Changes</h3>
+      <p>Describe what you'd like changed:</p>
+      <textarea id="negotiateMessage" rows="5"
+        style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;color:#0f172a;resize:none;margin-bottom:4px;"
+        placeholder="e.g. I'd like the price reduced to $800, and include cleanup in the scope..."></textarea>
+      <button class="btn" style="background:#d97706;color:#fff;margin-top:6px;" onclick="handleSendNegotiate()">
+        Send Request
+      </button>
+      <button class="btn btn-clear" style="margin-top:8px;" onclick="cancelNegotiate()">
+        ← Back to Signature
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const SB_CONFIGS = {
+    dev:  {
+      url: 'https://nwtnkoifnlggywwonjxj.supabase.co',
+      key: 'sb_publishable_rTl57cmjHOU-jotYfM--Fg_2GQQJgAu',
+    },
+    prod: {
+      url: 'https://jugfdikoiavuxrefxfue.supabase.co',
+      key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1Z2ZkaWtvaWF2dXhyZWZ4ZnVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1MTg0MjMsImV4cCI6MjEwMzA5NDQyM30.b0AxEc7LJFmsP0jHTj603R8NXzt3XvuyfUx8hTn4YCE',
+    },
+  };
+  const _envParam = new URLSearchParams(window.location.search).get('env');
+  const _env = _envParam === 'prod' ? 'prod' : 'dev';   // default dev for safety/back-compat
+  const SUPABASE_URL      = SB_CONFIGS[_env].url;
+  const SUPABASE_ANON_KEY = SB_CONFIGS[_env].key;
+  const EDGE_FUNCTION     = `${SUPABASE_URL}/functions/v1/sign`;
+
+  let requestId    = null;
+  let hasDrawn     = false;
+  let hasSigned    = false;
+  let isSubmitting = false;
+  let ackConfirmed = false;
+
+  // ── Already-submitted state ───────────────
+  function showAlreadySubmitted(status) {
+    showState('stateAlreadySubmitted');
+    const msg   = document.getElementById('alreadySubmittedMsg');
+    const title = document.getElementById('alreadySubmittedTitle');
+    const icon  = document.getElementById('alreadySubmittedIcon');
+    if (status === 'signed' || status === 'remote_approved') {
+      title.textContent = 'Already Submitted';
+      icon.textContent  = '🔒';
+      msg.innerHTML  = '✅ You have already signed this agreement. No further action needed.';
+      msg.style.color = '#057a55';
+    } else if (status === 'negotiating') {
+      title.textContent = 'Already Submitted';
+      icon.textContent  = '🔒';
+      msg.innerHTML  = '💬 You have already submitted a change request. The contractor will review and send an updated agreement if needed.';
+      msg.style.color = '#d97706';
+    } else if (status === 'declined') {
+      title.textContent = 'Already Submitted';
+      icon.textContent  = '🔒';
+      msg.innerHTML  = '❌ You have already declined this agreement.';
+      msg.style.color = '#dc2626';
+    } else if (status === 'cancelled') {
+      title.textContent = 'No Longer Available';
+      icon.textContent  = '🚫';
+      msg.innerHTML  = 'This signing request is no longer available. Please contact your contractor for more information.';
+      msg.style.color = '#64748b';
+    }
+  }
+
+  // ── Show a state ──────────────────────────
+  function showState(id) {
+    document.querySelectorAll('.state').forEach(el => el.classList.remove('active'));
+    document.getElementById('mainContent').style.display = 'none';
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
+  }
+
+  function showMain() {
+    document.querySelectorAll('.state').forEach(el => el.classList.remove('active'));
+    document.getElementById('mainContent').style.display = 'block';
+  }
+
+  // ── Load agreement from Supabase ──────────
+  async function loadAgreement() {
+    const params = new URLSearchParams(window.location.search);
+    requestId    = params.get('id');
+
+    if (!requestId) {
+      showState('stateNotFound');
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${EDGE_FUNCTION}?id=${encodeURIComponent(requestId)}&format=json&mode=request`,
+        {
+          headers: {
+            'apikey':        SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          }
+        }
+      );
+
+      const request = await res.json();
+
+      if (!request || request.error || !request.id) {
+        showState('stateNotFound');
+        return;
+      }
+
+      // Check if expired
+      if (new Date() > new Date(request.expires_at)) {
+        showState('stateExpired');
+        return;
+      }
+
+      // If already actioned, show already-submitted state
+      if (request.status === 'signed' ||
+          request.status === 'negotiating' ||
+          request.status === 'declined' ||
+          request.status === 'remote_approved' ||
+          request.status === 'cancelled') {
+        showAlreadySubmitted(request.status);
+        return;
+      }
+
+      const isCompletion = request.type === 'completion';
+
+      if (isCompletion) {
+        document.getElementById('jobTitle').textContent     = request.job_title || request.scope;
+        document.getElementById('jobLocation').textContent  = request.location;
+        document.getElementById('scopeText').textContent    = request.scope;
+        document.getElementById('signInstruction').textContent =
+          'I, ' + request.customer_name + ', confirm the work above has been completed to my satisfaction';
+        document.getElementById('ackLabel').textContent =
+          'I confirm that I am ' + request.customer_name + ', and the work described has been completed to my satisfaction.';
+        document.getElementById('submitBtn').textContent    = '✓ I Confirm & Sign';
+        document.getElementById('scopeLabel').textContent   = 'Work Completed';
+        document.getElementById('successTitle').textContent = 'Sign-off Complete!';
+        document.getElementById('successMsg').textContent   =
+          'Thank you! Your contractor has been notified. You may now close this page.';
+
+        // Hide financial rows
+        document.getElementById('agreedPrice').style.display = 'none';
+        document.getElementById('depositRow').style.display  = 'none';
+        document.getElementById('startDate').closest('.row').style.display    = 'none';
+        document.getElementById('paymentTerms').closest('.row').style.display = 'none';
+
+        // Hide negotiation buttons for completion type
+        document.getElementById('negotiateBtn').style.display = 'none';
+        document.getElementById('declineBtn').style.display   = 'none';
+
+        // Update header
+        document.querySelector('.header h1').textContent = 'Job Completion Sign-off';
+        document.querySelector('.header p').textContent  = 'Please review and sign to confirm';
+
+        // Update legal note
+        document.getElementById('legalText').textContent =
+          'By signing, you confirm the completed work is satisfactory. ' +
+          'This signature is timestamped and recorded as your acknowledgment of the completed work.';
+      } else {
+        document.getElementById('jobTitle').textContent    = request.job_title || request.scope;
+        document.getElementById('jobLocation').textContent = request.location;
+        document.getElementById('startDate').textContent    = request.start_date;
+        document.getElementById('paymentTerms').textContent = request.payment_terms;
+        document.getElementById('agreedPrice').textContent  = `$${parseFloat(request.agreed_price).toFixed(2)}`;
+        document.getElementById('scopeText').textContent    = request.scope;
+        document.getElementById('signInstruction').textContent =
+          `I, ${request.customer_name}, agree to the above terms`;
+        document.getElementById('ackLabel').textContent =
+          'I confirm that I am ' + request.customer_name + ', and I have reviewed and agree to the scope of work and the price of $' + parseFloat(request.agreed_price).toFixed(2) + ' described above.';
+        document.getElementById('legalText').textContent =
+          `By signing, ${request.customer_name} confirms they have read and agreed ` +
+          `to the scope of work and payment terms. This agreement is timestamped ` +
+          `and recorded as their acknowledgment of the scope and terms. Date: ${new Date().toLocaleDateString('en-US', {
+            month: 'long', day: 'numeric', year: 'numeric'
+          })}`;
+
+        if (parseFloat(request.deposit_amount) > 0) {
+          document.getElementById('depositRow').style.display = 'flex';
+          document.getElementById('depositAmount').textContent =
+            `$${parseFloat(request.deposit_amount).toFixed(2)}`;
+        }
+      }
+
+      showMain();
+      initCanvas();
+
+    } catch (error) {
+      console.error('Load error:', error);
+      showState('stateNotFound');
+    }
+  }
+
+  // ── Canvas setup ──────────────────────────
+  function initCanvas() {
+    const canvas = document.getElementById('signatureCanvas');
+    const ctx    = canvas.getContext('2d');
+
+    canvas.style.opacity       = '0.4';
+    canvas.style.pointerEvents = 'none';
+
+    function resize() {
+      const rect    = canvas.getBoundingClientRect();
+      const dpr     = window.devicePixelRatio || 1;
+      canvas.width  = rect.width  * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth   = 2.5;
+      ctx.lineCap     = 'round';
+      ctx.lineJoin    = 'round';
+    }
+
+    resize();
+    window.addEventListener('resize', resize);
+
+    let drawing = false;
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const src  = e.touches ? e.touches[0] : e;
+      return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+    }
+
+    function start(e) {
+      e.preventDefault();
+      drawing = true;
+      const p = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+    }
+
+    function draw(e) {
+      e.preventDefault();
+      if (!drawing) return;
+      const p = getPos(e);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      hasDrawn = true;
+      if (!hasSigned) {
+        hasSigned = true;
+        const btn = document.getElementById('submitBtn');
+        btn.style.opacity       = '1';
+        btn.style.pointerEvents = 'auto';
+        btn.style.cursor        = 'pointer';
+      }
+    }
+
+    function stop() { drawing = false; }
+
+    canvas.addEventListener('mousedown',  start);
+    canvas.addEventListener('mousemove',  draw);
+    canvas.addEventListener('mouseup',    stop);
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove',  draw,  { passive: false });
+    canvas.addEventListener('touchend',   stop);
+  }
+
+  function clearCanvas() {
+    const canvas = document.getElementById('signatureCanvas');
+    const ctx    = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hasDrawn  = false;
+    hasSigned = false;
+    const btn = document.getElementById('submitBtn');
+    btn.style.opacity       = '0.4';
+    btn.style.pointerEvents = 'none';
+    btn.style.cursor        = 'not-allowed';
+  }
+
+  function onAckChange() {
+    ackConfirmed = document.getElementById('ackCheckbox').checked;
+    const canvas = document.getElementById('signatureCanvas');
+    const hint = document.getElementById('ackHint');
+    if (ackConfirmed) {
+      canvas.style.opacity = '1';
+      canvas.style.pointerEvents = 'auto';
+      hint.style.display = 'none';
+    } else {
+      canvas.style.opacity = '0.4';
+      canvas.style.pointerEvents = 'none';
+      hint.style.display = 'block';
+      // also clear any drawing and re-disable submit
+      clearCanvas();
+    }
+  }
+
+  // ── Negotiation flow ──────────────────────
+  function handleSign() {
+    submitSignature('signed', '');
+  }
+
+  function handleNegotiate() {
+    document.getElementById('signatureSection').style.display = 'none';
+    document.getElementById('negotiateSection').style.display = 'block';
+  }
+
+  function cancelNegotiate() {
+    document.getElementById('negotiateSection').style.display = 'none';
+    document.getElementById('signatureSection').style.display = 'block';
+  }
+
+  function handleSendNegotiate() {
+    if (isSubmitting) return;
+    const message = document.getElementById('negotiateMessage').value.trim();
+    if (!message) {
+      alert('Please describe the changes you\'d like.');
+      return;
+    }
+    submitSignature('negotiating', message);
+  }
+
+  function handleDecline() {
+    if (isSubmitting) return;
+    if (confirm('Are you sure you want to decline this agreement?')) {
+      submitSignature('declined', '');
+    }
+  }
+
+  // ── Submit ────────────────────────────────
+  async function submitSignature(status, message) {
+    if (isSubmitting) return;
+    isSubmitting = true;
+
+    const body = { status, message: message || '' };
+
+    if (status === 'signed') {
+      if (!ackConfirmed) {
+        alert('Please confirm the statement above before signing.');
+        isSubmitting = false;
+        return;
+      }
+      if (!hasDrawn) {
+        alert('Please sign before submitting.');
+        isSubmitting = false;
+        return;
+      }
+      const canvas = document.getElementById('signatureCanvas');
+      body.signatureBase64 = canvas.toDataURL('image/png');
+    }
+
+    body.ackConfirmed = ackConfirmed;
+    body.signerDevice = navigator.userAgent;
+
+    document.getElementById('submitBtn').disabled = true;
+    showState('stateSaving');
+
+    try {
+      const res = await fetch(`${EDGE_FUNCTION}/${requestId}`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'apikey':        SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const result = await res.json();
+
+      if (result.success) {
+        // Lock all interactive elements so the page cannot be resubmitted
+        document.getElementById('submitBtn').style.pointerEvents    = 'none';
+        document.getElementById('negotiateBtn').style.pointerEvents = 'none';
+        document.getElementById('declineBtn').style.pointerEvents   = 'none';
+        document.getElementById('submitBtn').style.opacity    = '0.4';
+        document.getElementById('negotiateBtn').style.opacity = '0.4';
+        document.getElementById('declineBtn').style.opacity   = '0.4';
+
+        if (status === 'negotiating') {
+          document.getElementById('successTitle').textContent = '💬 Request Sent!';
+          document.getElementById('successMsg').textContent =
+            'Your change request has been sent to the contractor. They will contact you shortly.';
+        } else if (status === 'declined') {
+          document.getElementById('successTitle').textContent = '✕ Agreement Declined';
+          document.getElementById('successMsg').textContent =
+            'The contractor has been notified. They may reach out to discuss new terms.';
+        }
+        showState('stateSuccess');
+      } else {
+        isSubmitting = false;
+        showMain();
+        document.getElementById('submitBtn').disabled = false;
+        alert('Error: ' + (result.error || 'Unknown error'));
+      }
+
+    } catch (error) {
+      console.error('Submit error:', error);
+      isSubmitting = false;
+      alert('Network error. Please check your connection and try again.');
+      showMain();
+      document.getElementById('submitBtn').disabled = false;
+    }
+  }
+
+  // Start
+  loadAgreement();
+</script>
+</body>
+</html>
